@@ -1,0 +1,36 @@
+{
+  "name": "APP_NAME",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build:types": "tsc -p tsconfig-build-types.json",
+    "check:types": "tsc",
+    "check:types:watch": "tsc --watch",
+    "coverage": "NODE_OPTIONS=--experimental-vm-modules jest --config ./jest.config.js --coverage",
+    "lint": "standard",
+    "lint:fix": "standard --fix",
+    "migrate:generate": "drizzle-kit generate",
+    "migrate:run": "node src/migrate.js",
+    "prepare": "husky",
+    "release:first": "npm run release -- --first-release",
+    "start": "node bin/www/index.js",
+    "start:dev": "node --inspect=0.0.0.0:9229 --watch bin/www/index.js",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --detectOpenHandles --forceExit",
+    "test:watch": "npm run test -- --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "description": "",
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  },
+  "standard": {
+    "includes": [
+      "tests"
+    ]
+  }
+}
