@@ -6,101 +6,15 @@ import { /* excludeFields,  */generateReturning, queryBuilder } from '../../comm
 import { config } from '../../../config/index.js'
 
 /**
- * A utility type that flattens and simplifies complex types to make them more readable.
- *
- * @template T
- * @typedef {T extends object ? { [K in keyof T]: T[K] } & {} : T} Prettify
- *
- * @example
- * // Usage example:
- * // @type {Prettify<{a: string} & {b: number}>}
- * // const obj = { a: 'hello', b: 42 }; // obj will have the type { a: string, b: number }
- */
-
-/**
- * @typedef {Object.<string, any>} FilterCriteria
- * A flexible structure for filter criteria allowing any field or value, adhering to JSON:API query expressions.
- */
-
-/**
- * @typedef {Object} FilterData
- * @property {FilterCriteria} [like] - Conditions for LIKE filters, with flexible fields.
- * @property {FilterCriteria} [not] - Conditions for NOT filters, with flexible fields.
- * @property {FilterCriteria} [lt] - Conditions for less-than filters, with flexible fields.
- * @property {FilterCriteria} [lte] - Conditions for less-than-or-equal filters, with flexible fields.
- * @property {FilterCriteria} [gt] - Conditions for greater-than filters, with flexible fields.
- * @property {FilterCriteria} [gte] - Conditions for greater-than-or-equal filters, with flexible fields.
- * @property {FilterCriteria} [custom] - General custom conditions, allowing any field-value pair.
- */
-
-/**
- * @typedef {Object} QueryData
- * @property {Array<string>} [include] - List of related resources to include.
- * @property {Object.<string, Array<string>>} [fields] - Specifies which fields to return for each resource type.
- * @property {Array<string>} [sort] - Fields to sort by, with "-" prefix for descending order.
- * @property {Object.<string, number>} [page] - Pagination details like "number" and "size".
- * @property {FilterData} [filter] - Flexible filtering criteria for queries.
- */
-
-/**
- * @typedef {Object} RequestData
- * @property {string} resourceType - Type of resource being queried, e.g., "article".
- * @property {string} identifier - Unique identifier for querying a specific record.
- * @property {boolean} [relationships=false] - Whether to include related resources.
- * @property {string|null} [relationshipType=null] - Type of relationship to include if applicable.
- * @property {QueryData} queryData - Query parameters, including filters, sorting, pagination, etc.
- */
-
-/**
- * @typedef {import("drizzle-orm/pg-core").TableConfig} Schema
- */
-
-/**
- * @typedef {Object.<string, function>} ExtraMethods
- * An optional object containing additional methods to extend the base controller functionality.
- */
-
-/**
- * @typedef {Payload} Payload
- */
-
-/**
- * @typedef {Object} EntityBaseFields
- * @property {number} id - The unique identifier of the inserted record.
- * @property {string} created_at - Timestamp when the record was created.
- * @property {string} updated_at - Timestamp when the record was last updated.
- */
-
-/**
- * @typedef {Prettify<EntityBaseFields & Object.<string, unknown>>} Entity
- */
-
-/**
- * @typedef {Object} GetAllResult
- * @property {Array<Entity>} data - The list of records according to filter and pagination.
- * @property {number} total - Total number of records.
- */
-
-/**
- * @typedef {Object} Model
- * @property {(payload: Payload, excludedFields: string[]) => Promise<Entity>} create - Inserts a new record.
- * @property {(requestData: RequestData) => Promise<void>} deleteById - Deletes a record by ID.
- * @property {(requestData: RequestData) => Promise<GetAllResult>} getAll - Retrieves all records.
- * @property {(requestData: RequestData, excludedFields: string[]) => Promise<Entity>} getById - Retrieves a single record by ID.
- * @property {(id: string, payload: Payload, excludedFields: string[]) => Promise<Entity>} patch - Updates specified fields of a record.
- * @property {(id: string, payload: Payload, excludedFields: string[]) => Promise<Entity>} update - Updates a record by ID.
- * @property {ExtraMethods} extraMethods - Additional optional methods extending the controller.
- */
-
-/**
- * Base model function that provides common CRUD operations.
+ * Base modelfunction that provides common CRUD operations.
  *
  * @param {Schema} schema - The database table schema.
- * @param {ExtraMethods} [extraMethods={}] - Optional additional methods to extend the base model.
+ * @param {Refine} [refine] - Optional additional methods to extend the base model.
  * @returns {Model & ExtraMethods} An object containing common CRUD methods for the specified schema.
  */
-export const baseModel = (schema, extraMethods = {}) => {
+export const baseModel = (schema, refine = { hooks }) => {
   const tableName = toCamelCase(getTableName(schema))
+  const { hooks, methods } = refine
 
   /**
    * Inserts a new record into the table.
@@ -109,17 +23,13 @@ export const baseModel = (schema, extraMethods = {}) => {
    * @param {string[]} [excludedFields=[]] - Fields to exclude from the returning result.
    * @returns {Promise<Entity>} The inserted record data.
    */
-  const create = async (payload, excludedFields = []) => {
-    // return dataSource.getInstance().insert(schema).values(payload).returning(generateReturning(schema, excludedFields))
-    const data = await dataSource.getInstance().insert(schema).values(payload).returning(generateReturning(schema, excludedFields))
-
-    // result[0].picture = result[0].picture.toString('base64')
-    // result[0].picture = Buffer.from(result[0].picture, 'base64').toString()
-    // result[0].picture = result[0].picture.toString()
-    // result[0].picture = Buffer.from(result[0].picture.toString('hex'), 'hex')
-    data[0].picture = data[0].picture.toString()
-
-    return data
+  const create = (payload, excludedFields = []) => {
+    return dataSource
+      .getInstance()
+      .insert(schema)
+      .values(typeof hooks?.creating === 'function' ? hooks.creating(payload) : payload)
+      .returning(generateReturning(schema, excludedFields))
+      .then(data => typeof hooks?.created === 'function' ? hooks.created(data) : data)
   }
 
   /**
@@ -155,9 +65,6 @@ export const baseModel = (schema, extraMethods = {}) => {
 
     const data = await dbInstance.query[tableName].findMany(query)
     const { total } = (await dbInstance.select({ total: count() }).from(schema))[0]
-
-    data[0].picture = data[0].picture.toString()
-    console.log(data[0].picture.toString())
 
     return { data, total }
   }
@@ -195,11 +102,13 @@ export const baseModel = (schema, extraMethods = {}) => {
       .getInstance()
       .update(schema)
       .set({
-        ...payload,
+        // ...payload,
+        ...(typeof hooks?.updating === 'function' ? hooks.updating(payload) : payload),
         updated_at: sql`now()`
       })
       .where(eq(schema.id, id))
       .returning()
+      .return(data => typeof hooks?.updated === 'function' ? hooks.updated(data) : data)
   }
 
   /**
@@ -221,6 +130,53 @@ export const baseModel = (schema, extraMethods = {}) => {
     getById,
     patch,
     update,
-    ...extraMethods
+    ...methods
   }
 }
+
+/**
+ * @typedef {import("drizzle-orm/pg-core").TableConfig} Schema
+ */
+
+/**
+ * @typedef {Object} Model
+ * @property {(payload: Payload, excludedFields: string[]) => Promise<Entity>} create - Inserts a new record.
+ * @property {(requestData: RequestData) => Promise<void>} deleteById - Deletes a record by ID.
+ * @property {(requestData: RequestData) => Promise<GetAllResult>} getAll - Retrieves all records.
+ * @property {(requestData: RequestData, excludedFields: string[]) => Promise<Entity>} getById - Retrieves a single record by ID.
+ * @property {(id: string, payload: Payload, excludedFields: string[]) => Promise<Entity>} patch - Updates specified fields of a record.
+ * @property {(id: string, payload: Payload, excludedFields: string[]) => Promise<Entity>} update - Updates a record by ID.
+ */
+
+/**
+ * A number, or a string containing a number.
+ * @typedef {object} Hooks
+ * @property {(data: Objec<string, unknown>) => Promise<void>} [created]
+ * @property {(data: Objec<string, unknown>) => Promise<void>} [creating]
+ * @property {(data: Objec<string, unknown>) => Promise<void>} [deleted]
+ * @property {(data: Objec<string, unknown>) => Promise<void>} [deleting]
+ * @property {(data: Objec<string, unknown>) => Promise<void>} [retrieved]
+ * @property {(data: Objec<string, unknown>) => Promise<void>} [retrieving]
+ * @property {(data: Objec<string, unknown>) => Promise<void>} [saved]
+ * @property {(data: Objec<string, unknown>) => Promise<void>} [saving]
+ * @property {(data: Objec<string, unknown>) => Promise<void>} [updated]
+ * @property {(data: Objec<string, unknown>) => Promise<void>} [updating]
+ */
+
+/**
+ * @template T
+ * @typedef {T extends keyof Model ? Model[T] : never} Method
+ */
+
+/**
+ * @typedef {Partial<{
+*   [K in keyof Model]: Method<K>;
+* }>} ExtraMethods
+*/
+
+/**
+ * A number, or a string containing a number.
+ * @typedef {object} Refine
+ * @property {Hooks} hooks
+ * @property {ExtraMethods} methods
+ */

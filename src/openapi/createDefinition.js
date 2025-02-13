@@ -51,7 +51,7 @@ export const creteDefinition = (tags, { application, server }) => {
       // security: [
       //   { BearerAuth: [] } // Applies to all paths by default; adjust as needed per path
       // ],
-      tags: [{ name: 'Users', description: `${'Users'} related end-points` }]
+      tags: tags.map(name => ({ name, description: `${name} related end-points` }))
     }
   }
 }

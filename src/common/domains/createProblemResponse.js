@@ -9,7 +9,12 @@ export const createProblemResponse = (error) => {
   }
 }
 
-export const fastifyErrorToProblem = (errors, status = 400, type = 'about:blank', title = 'Validation Error') => {
+export const fastifyErrorToProblem = (
+  errors,
+  status = 400,
+  type = 'about:blank',
+  title = 'Validation Error'
+) => {
   if (!Array.isArray(errors)) {
     throw new Error('Invalid input: errors must be an array.')
   }
