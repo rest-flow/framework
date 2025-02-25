@@ -1,4 +1,4 @@
-FROM node:20.18-alpine3.19 as base
+FROM node:NODE_LTS_VERSION as base
 
 # Create Directory for the Container
 WORKDIR /usr/src/app

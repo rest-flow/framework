@@ -1,4 +1,12 @@
-const schemas = {}
+const schemas = []
+
+/**
+ * Gets the schema tags split by uppercase letters
+ *
+ * @param {string[]} tag
+ * @returns {string}
+ */
+export const getSchemaTags = (tags) => tags.map(tag => tag.split(/(?=[A-Z])/).join(' '))
 
 /**
  *
@@ -19,14 +27,13 @@ export const getSchemas = () => {
 
 /**
  *
- * @param {string} domain
  * @param {string} id
  * @param {object} schema // TODO: create correct type
  */
-export const registerSchema = (domain, id, schema) => {
-  (schemas[domain] ??= []).push({
+export const registerSchema = (id, schema) => {
+  schemas.push({
     $id: id,
-    ...schema
+    schema,
   })
 }
 
@@ -37,13 +44,11 @@ export const registerSchema = (domain, id, schema) => {
 export const addSchemas = (app) => {
   const tags = []
 
-  for (const schemas of Object.values(getSchemas())) {
-    for (const schema of schemas) {
-      app.addSchema(schema)
+  for (const schema of getSchemas()) {
+    app.addSchema(schema)
 
-      tags.push(schema.$id)
-    }
+    tags.push(schema.$id)
   }
 
-  return tags
+  return getSchemaTags(tags)
 }
