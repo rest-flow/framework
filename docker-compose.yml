@@ -1,7 +1,7 @@
 version: "3.9"
 services:
   rest-api:
-    container_name: DATABASE_CONTAINER_NAME          # Container name
+    container_name: API_CONTAINER_NAME          # Container name
     restart: unless-stopped
     build:
       context: ./

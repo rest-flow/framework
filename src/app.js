@@ -7,7 +7,7 @@ import csrfProtection from '@fastify/csrf-protection'
 import fastify from 'fastify'
 import fastifyCompress from '@fastify/compress'
 import helmet from '@fastify/helmet'
-import multipart/* , { ajvFilePlugin } */ from '@fastify/multipart'
+import multipart from '@fastify/multipart'
 import { StatusCodes } from 'http-status-codes'
 
 import { config } from '../config/index.js'
@@ -18,39 +18,26 @@ import { addSchemas, fastifyErrorToProblem, PROBLEM_CONTENT_TYPE } from './commo
 export const app = fastify({
   logger: config.logger[process.env.NODE_ENV],
   ajv: {
-    // useDefaults: true,
-    // coerceTypes: true,
-    // $data: true,
-    // extendRefs: true,
+    allowUnionTypes: true,
     removeAdditional: true, // remove additional properties
     useDefaults: true, // replace missing properties and items with the values from corresponding default keyword
     coerceTypes: true, // change data type of data to match type keyword
-    nullable: true // support keyword "nullable" from Open API 3 specification.
-    // customOptions: {
-    //   removeAdditional: false
-    // },
-    // plugins: [ajvFilePlugin]
+    nullable: true, // support keyword "nullable" from Open API 3 specification.
+    customOptions: {
+      strictTypes: false, // Disable strict type enforcement
+      allowUnionTypes: true // Allow union types like JSONB
+    }
   }
 })
 
-async function onFile (part, parent) {
+const onFile = async (part) => {
   const buff = await part.toBuffer()
-  // const decoded = Buffer.from(buff.toString(), 'base64').toString()
-  // part.value = decoded // set `part.value` to specify the request body value
+
   part.value = buff.toString('hex')
 }
 
 const opts = {
-  limits: {
-    fileSize: 1024 * 1024 * 5, // 5mb- max file size
-    fieldNameSize: 100, // 100 bytes- max field name size
-    fields: 10, // 10 files- max number of fields
-    fieldSize: 100, // 100 bytes- max field value size
-    files: 5 // 5 files- max number of files
-  },
-  // attachFieldsToBody: true
-  // attachFieldsToBody: 'keyValues'
-  attachFieldsToBody: 'keyValues',
+  ...config.upload,
   onFile
 }
 
@@ -60,14 +47,14 @@ const tags = addSchemas(app)
 
 app.register(Swagger, creteDefinition(tags, config))
 
-app.register(SwaggerUI/* , {
+app.register(SwaggerUI, {
   uiConfig: {
     docExpansion: 'list',
     deepLinking: false
   }
-} */)
+})
 
-app.setErrorHandler(function (error, _, reply) {
+app.setErrorHandler((error, _, reply) => {
   if (error.validation) {
     reply
       .header('Content-Type', PROBLEM_CONTENT_TYPE)
@@ -108,17 +95,6 @@ await app.register(fastifyCompress, config.compression)
 await app.register(csrfProtection)
 await app.register(helmet)
 await app.register(cors)
-
-// const tags = addSchemas(app)
-
-// app.register(Swagger, creteDefinition(tags, config))
-
-// app.register(SwaggerUI, {
-//   uiConfig: {
-//     docExpansion: 'list',
-//     deepLinking: false
-//   }
-// })
 
 // Domains Routes
 for (const route of Object.values(routes)) {

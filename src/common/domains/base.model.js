@@ -6,15 +6,14 @@ import { /* excludeFields,  */generateReturning, queryBuilder } from '../../comm
 import { config } from '../../../config/index.js'
 
 /**
- * Base modelfunction that provides common CRUD operations.
+ * Base model factory that provides common CRUD operations.
  *
  * @param {Schema} schema - The database table schema.
- * @param {Refine} [refine] - Optional additional methods to extend the base model.
+ * @param {Refine} [refine = {}] - Optional additional methods to extend the base model.
  * @returns {Model & ExtraMethods} An object containing common CRUD methods for the specified schema.
  */
-export const baseModel = (schema, refine = { hooks }) => {
+export const baseModel = (schema, { hooks, methods } = {}) => {
   const tableName = toCamelCase(getTableName(schema))
-  const { hooks, methods } = refine
 
   /**
    * Inserts a new record into the table.
@@ -58,13 +57,10 @@ export const baseModel = (schema, refine = { hooks }) => {
 
     const dbInstance = dataSource.getInstance()
 
-    // const [data, total] = await Promise.all([
-    //   dbInstance.query[tableName].findMany(query),
-    //   dbInstance.select({ count: count() }).from(schema).then(result => result[0].count)
-    // ])
-
-    const data = await dbInstance.query[tableName].findMany(query)
-    const { total } = (await dbInstance.select({ total: count() }).from(schema))[0]
+    const [data, total] = await Promise.all([
+      dbInstance.query[tableName].findMany(query),
+      dbInstance.select({ count: count() }).from(schema).then(result => result[0].count)
+    ])
 
     return { data, total }
   }
@@ -102,13 +98,12 @@ export const baseModel = (schema, refine = { hooks }) => {
       .getInstance()
       .update(schema)
       .set({
-        // ...payload,
         ...(typeof hooks?.updating === 'function' ? hooks.updating(payload) : payload),
         updated_at: sql`now()`
       })
       .where(eq(schema.id, id))
       .returning()
-      .return(data => typeof hooks?.updated === 'function' ? hooks.updated(data) : data)
+      .then(data => typeof hooks?.updated === 'function' ? hooks.updated(data) : data)
   }
 
   /**
@@ -151,16 +146,16 @@ export const baseModel = (schema, refine = { hooks }) => {
 /**
  * A number, or a string containing a number.
  * @typedef {object} Hooks
- * @property {(data: Objec<string, unknown>) => Promise<void>} [created]
- * @property {(data: Objec<string, unknown>) => Promise<void>} [creating]
- * @property {(data: Objec<string, unknown>) => Promise<void>} [deleted]
- * @property {(data: Objec<string, unknown>) => Promise<void>} [deleting]
- * @property {(data: Objec<string, unknown>) => Promise<void>} [retrieved]
- * @property {(data: Objec<string, unknown>) => Promise<void>} [retrieving]
- * @property {(data: Objec<string, unknown>) => Promise<void>} [saved]
- * @property {(data: Objec<string, unknown>) => Promise<void>} [saving]
- * @property {(data: Objec<string, unknown>) => Promise<void>} [updated]
- * @property {(data: Objec<string, unknown>) => Promise<void>} [updating]
+ * @property {(data: Record<string, unknown>) => Promise<void>} [created]
+ * @property {(data: Record<string, unknown>) => Promise<void>} [creating]
+ * @property {(data: Record<string, unknown>) => Promise<void>} [deleted]
+ * @property {(data: Record<string, unknown>) => Promise<void>} [deleting]
+ * @property {(data: Record<string, unknown>) => Promise<void>} [retrieved]
+ * @property {(data: Record<string, unknown>) => Promise<void>} [retrieving]
+ * @property {(data: Record<string, unknown>) => Promise<void>} [saved]
+ * @property {(data: Record<string, unknown>) => Promise<void>} [saving]
+ * @property {(data: Record<string, unknown>) => Promise<void>} [updated]
+ * @property {(data: Record<string, unknown>) => Promise<void>} [updating]
  */
 
 /**

@@ -6,15 +6,12 @@ const schemas = []
  * @param {string[]} tag
  * @returns {string}
  */
-export const getSchemaTags = (tags) => tags.map(tag => tag.split(/(?=[A-Z])/).join(' '))
+export const getSchemaTags = (schemas) => {
+  return schemas.reduce((tags, schema) => {
+    tags.push(schema.$id.split(/(?=[A-Z])/).join(' '))
 
-/**
- *
- * @param {string} domain
- * @returns {object[]} // TODO: create correct type
- */
-export const getDomainSchemas = (domain) => {
-  return schemas[domain]
+    return tags
+  }, [])
 }
 
 /**
@@ -42,13 +39,11 @@ export const registerSchema = (id, schema) => {
  * @param {import('fastify').FastifyInstance} app
  */
 export const addSchemas = (app) => {
-  const tags = []
+  const schemas = getSchemas()
 
-  for (const schema of getSchemas()) {
+  for (const schema of schemas) {
     app.addSchema(schema)
-
-    tags.push(schema.$id)
   }
 
-  return getSchemaTags(tags)
+  return getSchemaTags(schemas)
 }
